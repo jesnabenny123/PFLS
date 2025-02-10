@@ -1,21 +1,30 @@
+if [ $# -ne 1 ]; then
+    echo "Usage: $0 <fasta_file>"
+    exit 1
+fi
 
-num_sequences=$(grep -c '^>' "$1")
+FASTA_FILE="$1"
 
-total_length=$(awk '/^>/ {next} {sum += length} END {print sum}' "$1")
+num_sequences=$(grep -c "^>" "$FASTA_FILE")
 
+seq_lengths=$(awk '/^>/ {if (seqlen) print seqlen; seqlen=0; next} {seqlen += length} END {print seqlen}' "$FASTA_FILE")
 
-lengths=$(awk '/^>/ {next} {print length}' "$1")
-longest=$(echo "$lengths" | sort -nr | head -n1)
-shortest=$(echo "$lengths" | sort -n | head -n1)
-average_length=$((total_length / num_sequences))
-gc_count= $(echo "$1" | grep -o '[GCgc]' | wc -l)
-gc_content= echo "$gc_count * 100 / $total_length" | bc -l
+total_length=$(echo "$seq_lengths" | awk '{sum+=$1} END {print sum}')
+
+longest_seq=$(echo "$seq_lengths" | sort -nr | head -1)
+
+shortest_seq=$(echo "$seq_lengths" | sort -n | head -1)
+
+average_length=$(echo "scale=2; $total_length / $num_sequences" | bc)
+
+gc_content=$(awk '/^>/ {next} {gc+=gsub(/[GgCc]/,""); total+=length} END {if (total > 0) print (gc/total)*100}' "$FASTA_FILE")
+
 
 echo "FASTA File Statistics:"
 echo "----------------------"
 echo "Number of sequences: $num_sequences"
 echo "Total length of sequences: $total_length"
-echo "Length of the longest sequence: $longest_length"
-echo "Length of the shortest sequence: $shortest_length"
-echo "Average sequence length: $avg_length"
-echo "GC Content (%): $gc_content
+echo "Length of the longest sequence: $longest_seq"
+echo "Length of the shortest sequence: $shortest_seq"
+echo "Average sequence length: $average_length"
+echo "GC Content (%): $gc_content"
